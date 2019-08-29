@@ -41,6 +41,7 @@ class ServerProtocol(AdsProtocol):
         self.transport = None
         self.peer_name = None
         self.buffer = bytearray()
+        self.client_net_id = None
         self.masquerade_as = structs.AmsNetId.from_string(masquerade_as)
 
     def plc_frame_received(self, plc, header, data):
@@ -51,6 +52,10 @@ class ServerProtocol(AdsProtocol):
                            header.target_net_id.address)
             return
 
+        if self.client_net_id is not None:
+            # make the target that of our client
+            header.target_net_id = structs.AmsNetId.from_string(self.client_net_id)
+
         if self.transport:
             self.transport.write(bytes(header) + data)
 
@@ -59,6 +64,8 @@ class ServerProtocol(AdsProtocol):
         logger.debug('Received from client destined for %r: %r (buffer %d)',
                      target_net_id, header, len(self.buffer))
         orig_source = header.source_net_id.address
+        self.client_net_id = orig_source
+
         header.source_net_id = self.masquerade_as
         logger.debug('Sending to %s header %s (source was: %s)', target_net_id,
                      header, orig_source)
